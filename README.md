@@ -160,3 +160,75 @@ First, create a directory called templates in your polls directory. Django will 
 Your project’s TEMPLATES setting describes how Django will load and render templates. The default settings file configures a DjangoTemplates backend whose APP_DIRS option is set to True. By convention DjangoTemplates looks for a “templates” subdirectory in each of the INSTALLED_APPS.
 Within the templates directory you have just created, create another directory called polls, and within that create a file called index.html. In other words, your template should be at polls/templates/polls/index.html. Because of how the app_directories template loader works as described above, you can refer to this template within Django as polls/index.html.
 
+> polls/templates/polls/index.html  
+{% if latest_question_list %}
+    <ul>
+    {% for question in latest_question_list %}
+        <li><a href="/polls/{{ question.id }}/">{{ question.question_text }}</a></li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>No polls are available.</p>
+{% endif %}
+
+> polls/views.py
+from django.http import HttpResponse
+from django.template import loader
+from .models import Question
+def index(request):
+    latest_question_list = Question.objects.order_by('-pub_date')[:5]
+    template = loader.get_template('polls/index.html')
+    context = {
+        'latest_question_list': latest_question_list,
+    }
+    return HttpResponse(template.render(context, request))
+
+
+## Raising a 404 error
+
+> polls/views.py
+from django.http import Http404
+from django.shortcuts import render
+
+from .models import Question
+# ...
+def detail(request, question_id):
+    try:
+        question = Question.objects.get(pk=question_id)
+    except Question.DoesNotExist:
+        raise Http404("Question does not exist")
+    return render(request, 'polls/detail.html', {'question': question})
+
+> polls/templates/polls/detail.html
+{{ question }}
+
+
+### A shortcut: get_object_or_404()
+
+> polls/views.py
+from django.shortcuts import get_object_or_404, render
+
+from .models import Question
+# ...
+def detail(request, question_id):
+    question = get_object_or_404(Question, pk=question_id)
+    return render(request, 'polls/detail.html', {'question': question})
+
+## Use the template system
+<h1>{{ question.question_text }}</h1>
+<ul>
+{% for choice in question.choice_set.all %}
+    <li>{{ choice.choice_text }}</li>
+{% endfor %}
+</ul>
+
+## Removing hardcoded URLs in templates¶
+> <li><a href="/polls/{{ question.id }}/">{{ question.question_text }}</a></li>  
+--> <li><a href="{% url 'detail' question.id %}">{{ question.question_text }}</a></li>
+
+## Namespacing URL names
+polls/urls.py
+> app_name = 'polls'
+change your polls/index.html
+{% url 'polls:detail' question.id %}
+
